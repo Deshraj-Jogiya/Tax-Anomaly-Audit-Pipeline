@@ -225,7 +225,7 @@ def export_dashboard(df, output_path):
 if __name__ == "__main__":
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     db_path = os.path.join(base_dir, "data", "tax_compliance.db")
-    output_path = os.path.join(base_dir, "viz", "powerbi_compliance_dashboard.png")
+    output_path = os.path.join(base_dir, "viz", "matplotlib_dashboard_preview.png")
     
     # Run only if DB exists
     if os.path.exists(db_path):
