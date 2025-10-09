@@ -20,6 +20,9 @@ jobs:
           python etl/audit_etl.py
           python models/audit_detection.py
           python viz/dashboard_export.py
+          python viz/powerbi_export.py
+      - name: Run the tests
+        run: pip install pytest && python -m pytest tests/ -v
       - name: Run the same pipeline via Dagster asset orchestration
         run: |
           rm -f data/tax_compliance.db

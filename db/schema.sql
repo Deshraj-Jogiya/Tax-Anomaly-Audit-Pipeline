@@ -1,6 +1,7 @@
 -- Database Schema for Tax Anomaly Audit Pipeline
 
 -- Drop tables if they exist
+DROP TABLE IF EXISTS injected_anomalies;
 DROP TABLE IF EXISTS tax_claims;
 DROP TABLE IF EXISTS general_ledger;
 
@@ -22,5 +23,12 @@ CREATE TABLE tax_claims (
     tax_claimed REAL NOT NULL,
     audit_score REAL,
     audit_flag INTEGER DEFAULT 0,
+    FOREIGN KEY (entry_id) REFERENCES general_ledger(entry_id) ON DELETE CASCADE
+);
+
+-- Ground truth from the simulator: which entries were generated as anomalies. Kept apart from the tables the
+-- detectors read, and used only to score them.
+CREATE TABLE injected_anomalies (
+    entry_id INTEGER PRIMARY KEY,
     FOREIGN KEY (entry_id) REFERENCES general_ledger(entry_id) ON DELETE CASCADE
 );

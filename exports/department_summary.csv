@@ -1,0 +1,8 @@
+department,entries,flagged,avg_risk_score,total_amount
+Engineering,150,0,12.96,620950.14
+Finance,148,1,19.85,613929.94
+HR,187,3,19.79,962647.62
+Marketing,183,7,16.26,779981.39
+Operations,161,2,16.1,738569.87
+R&D,197,4,18.97,845637.36
+Sales,174,2,17.24,734055.39
