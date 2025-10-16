@@ -7,11 +7,16 @@ orchestrated as a Dagster asset graph.
 
 ## Highlights
 
-- **Audit ETL:** ingests and validates general-ledger transaction logs in Python and SQL, with lineage logging and schema validation.
-- **Two detectors:** Benford's Law first-digit deviation (30% of the risk score) plus an unsupervised Isolation Forest (70%). At the
-  risk-score threshold of 65, **94.7% of flagged entries are real anomalies** (18 of 19) and 38.3% of all injected anomalies are
-  caught; lowering the threshold catches more at lower precision. Precision and recall are computed on every run against the
-  simulator's injected anomalies, which are stored apart from the tables the detectors read.
+- **Audit ETL with validation:** ingests general-ledger transaction logs in Python and SQL; `etl/validate.py` checks every entry
+  (required fields, positive amount, date in the ledger year, account belongs to its department, no duplicates, tax claimed equals the
+  category's rate times the amount). Run as column operations, validating 100,000 entries takes 0.06 s against 40.6 s for the same checks
+  entry by entry, **99.9% less data-preparation time** (`benchmarks/prep_time.py`, both versions flag the same entries).
+- **Three detection layers:** Benford's Law first-digit deviation (30% of the risk score) and an unsupervised Isolation Forest (70%)
+  flag 19 entries at a risk score of 65 (94.7% precision, 38.3% recall); the tax-rate rule flags 45 (100% precision, 95.7% recall).
+  Combined: **97.8% precision and 95.7% recall** (45 of 47 injected anomalies). Scored on every run against the simulator's injected
+  anomalies, stored apart from the tables the detectors read (`exports/detection_layers.csv`).
+- **Faster review:** working down the priority order (rule hits, then risk score), an auditor finds 90% of the anomalies after opening
+  43 entries, against 1,108 in ledger order, **96% less review work** (`exports/review_effort.csv`).
 - **Dagster orchestration:** the same ETL, detection and dashboard steps run as Dagster assets (`raw_ledger_data` →
   `audited_ledger_data` → `compliance_dashboard`), and CI materializes the whole graph.
 - **Risk dashboard:** `viz/powerbi_export.py` writes the audited entries, Benford digit shares, department summary and detection

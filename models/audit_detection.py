@@ -1,9 +1,13 @@
 import os
+import sys
 import sqlite3
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from etl.validate import validate  # noqa: E402
 
 def load_data(db_path):
     """Loads ledger and tax claims data and joins them into a pandas DataFrame."""
@@ -110,7 +114,10 @@ def compute_compliance_scores(df, db_path):
     
     # Set threshold for flagging high priority audits (top 5% or risk score >= 65)
     threshold = 65.0
-    df['audit_flag'] = (df['compliance_risk_score'] >= threshold).astype(int)
+    df['model_flag'] = (df['compliance_risk_score'] >= threshold).astype(int)
+    # Deterministic rule layer: a tax claim that is not the category's rate times the amount (etl/validate.py)
+    df['rule_flag'] = validate(df)['tax_rate_mismatch'].astype(int)
+    df['audit_flag'] = (df['model_flag'] | df['rule_flag']).astype(int)
     
     # Summarize results
     flagged = df[df['audit_flag'] == 1]
@@ -150,21 +157,46 @@ def compute_compliance_scores(df, db_path):
         print(f"  Amount: ${row['amount']:.2f} | Tax Claimed: ${row['tax_claimed']:.2f} (Ratio: {row['tax_ratio']*100:.1f}%)")
         print(f"  Description: {row['description']}\n")
 
+def _layer_metrics(flagged, truth):
+    tp = int((flagged & truth).sum())
+    return {"flagged": int(flagged.sum()), "true_positives": tp,
+            "precision": tp / int(flagged.sum()) if flagged.any() else 0.0,
+            "recall": tp / int(truth.sum()) if truth.any() else 0.0}
+
+
+def review_effort(df, truth, share=0.9):
+    """Entries an auditor opens to find `share` of the injected anomalies: in priority order (rule hits first, then by risk
+    score) and in ledger order (entry id)."""
+    need = int(np.ceil(share * truth.sum()))
+    priority = df.assign(_t=truth).sort_values(["rule_flag", "compliance_risk_score"], ascending=False)
+    ledger = df.assign(_t=truth).sort_values("entry_id")
+    by_priority = int(np.argmax(priority["_t"].cumsum().to_numpy() >= need)) + 1
+    by_ledger = int(np.argmax(ledger["_t"].cumsum().to_numpy() >= need)) + 1
+    return {"share_of_anomalies": share, "anomalies_to_find": need, "entries_opened_priority_order": by_priority,
+            "entries_opened_ledger_order": by_ledger, "reduction": round(1 - by_priority / by_ledger, 4)}
+
+
 def evaluate_against_labels(df, db_path):
-    """Score the audit flags against the simulator's injected anomalies (labels the detectors never see)."""
+    """Score each detection layer against the simulator's injected anomalies (labels the detectors never see), measure review
+    effort, and write exports/detection_layers.csv and exports/review_effort.csv."""
     conn = sqlite3.connect(db_path)
     labels = {r[0] for r in conn.execute("SELECT entry_id FROM injected_anomalies")}
     conn.close()
     truth = df["entry_id"].isin(labels)
-    flagged = df["audit_flag"] == 1
-    tp = int((flagged & truth).sum())
-    precision = tp / int(flagged.sum()) if flagged.any() else 0.0
-    recall = tp / int(truth.sum()) if truth.any() else 0.0
+    layers = {name: _layer_metrics(df[col] == 1, truth)
+              for name, col in (("model", "model_flag"), ("rule", "rule_flag"), ("combined", "audit_flag"))}
+    effort = review_effort(df, truth)
+    out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(db_path))), "exports")
+    os.makedirs(out_dir, exist_ok=True)
+    pd.DataFrame([{"layer": k, **v} for k, v in layers.items()]).round(4).to_csv(os.path.join(out_dir, "detection_layers.csv"), index=False)
+    pd.DataFrame([effort]).to_csv(os.path.join(out_dir, "review_effort.csv"), index=False)
     print("\n--- EVALUATION AGAINST INJECTED ANOMALIES ---")
-    print(f"Injected anomalies: {int(truth.sum())} | Flagged: {int(flagged.sum())} | Correctly flagged: {tp}")
-    print(f"Precision: {precision:.1%} | Recall: {recall:.1%}")
-    return {"injected": int(truth.sum()), "flagged": int(flagged.sum()), "true_positives": tp,
-            "precision": precision, "recall": recall}
+    for name, m in layers.items():
+        print(f"{name:8s} flagged {m['flagged']:4d} | correct {m['true_positives']:3d} | precision {m['precision']:.1%} | recall {m['recall']:.1%}")
+    print(f"To find {effort['anomalies_to_find']} of {int(truth.sum())} anomalies an auditor opens {effort['entries_opened_priority_order']} "
+          f"entries in priority order vs {effort['entries_opened_ledger_order']} in ledger order ({effort['reduction']:.0%} fewer)")
+    combined = layers["combined"]
+    return {"injected": int(truth.sum()), **combined, "review_effort": effort}
 
 
 def run(db_path):

@@ -1,0 +1,4 @@
+layer,flagged,true_positives,precision,recall
+model,19,18,0.9474,0.383
+rule,45,45,1.0,0.9574
+combined,46,45,0.9783,0.9574
