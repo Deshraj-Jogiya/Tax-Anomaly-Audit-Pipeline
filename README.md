@@ -22,6 +22,8 @@ orchestrated as a Dagster asset graph.
 - **Risk dashboard:** `viz/powerbi_export.py` writes the audited entries, Benford digit shares, department summary and detection
   metrics to `exports/` for the Power BI report; a matplotlib preview is below.
 
+Measured results, each with the question, the test and the decision: [docs/FINDINGS.md](docs/FINDINGS.md).
+
 ## Architecture
 
 ```mermaid
