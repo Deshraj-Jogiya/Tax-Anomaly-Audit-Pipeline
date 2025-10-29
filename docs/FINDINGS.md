@@ -20,6 +20,30 @@ flags any claim whose tax doesn't match its category's rate.
 
 **Source.** `exports/detection_layers.csv`, `exports/detection_metrics.csv` (written by `models/audit_detection.py`).
 
+## Does the ledger follow Benford's Law, and which test can be trusted at what size?
+
+**How it was tested.** First digits of the amounts were tested against Benford's Law with a chi-square goodness-of-fit test (8
+degrees of freedom) and the mean absolute deviation (MAD) read against Nigrini's first-digit ranges, on the whole ledger, each
+department and the injected anomalies alone (`export_lab_data.py`).
+
+| Amounts | Count | Chi-square | p-value | MAD | Nigrini's range |
+|---|---|---|---|---|---|
+| Whole ledger | 1,200 | 22.64 | 0.0039 | 0.0091 | acceptable conformity |
+| Injected anomalies only | 47 | 346.38 | 5.4e-70 | 0.1792 | nonconformity |
+| Engineering | 150 | 2.39 | 0.967 | 0.0101 | acceptable conformity |
+| R&D | 197 | 4.73 | 0.786 | 0.0146 | marginal conformity |
+| Sales | 174 | 16.70 | 0.0334 | 0.0261 | nonconformity |
+
+**What it shows.** The 47 injected amounts are enough to pull the whole ledger off Benford (p = 0.0039) while its MAD still reads
+"acceptable". At department size (150 to 200 amounts) the two tests disagree the other way: the four departments not shown above
+(Finance, HR, Marketing, Operations) fit by chi-square (p from 0.07 to 0.38) yet fall in Nigrini's "nonconformity" range, which
+was set for about 1,000 amounts.
+
+**Decision.** Below about 1,000 amounts the chi-square p-value is the guide and MAD is shown for reference only (the portfolio Lab
+demo says so on screen); the pipeline keeps per-entry Benford deviation as a 30% share of the risk score, not a flag of its own.
+
+**Source.** `exports/lab_benford.json` (`fits`), `export_lab_data.py`.
+
 ## How much review work does the priority order save?
 
 **How it was tested.** Entries were opened in priority order (rule hits, then risk score) and, separately, in ledger order,
