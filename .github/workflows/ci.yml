@@ -20,3 +20,7 @@ jobs:
           python etl/audit_etl.py
           python models/audit_detection.py
           python viz/dashboard_export.py
+      - name: Run the same pipeline via Dagster asset orchestration
+        run: |
+          rm -f data/tax_compliance.db
+          python -m dagster asset materialize -f dagster_pipeline.py --select raw_ledger_data,audited_ledger_data,compliance_dashboard
