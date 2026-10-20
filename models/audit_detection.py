@@ -150,11 +150,31 @@ def compute_compliance_scores(df, db_path):
         print(f"  Amount: ${row['amount']:.2f} | Tax Claimed: ${row['tax_claimed']:.2f} (Ratio: {row['tax_ratio']*100:.1f}%)")
         print(f"  Description: {row['description']}\n")
 
-if __name__ == "__main__":
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    db_path = os.path.join(base_dir, "data", "tax_compliance.db")
-    
+def evaluate_against_labels(df, db_path):
+    """Score the audit flags against the simulator's injected anomalies (labels the detectors never see)."""
+    conn = sqlite3.connect(db_path)
+    labels = {r[0] for r in conn.execute("SELECT entry_id FROM injected_anomalies")}
+    conn.close()
+    truth = df["entry_id"].isin(labels)
+    flagged = df["audit_flag"] == 1
+    tp = int((flagged & truth).sum())
+    precision = tp / int(flagged.sum()) if flagged.any() else 0.0
+    recall = tp / int(truth.sum()) if truth.any() else 0.0
+    print("\n--- EVALUATION AGAINST INJECTED ANOMALIES ---")
+    print(f"Injected anomalies: {int(truth.sum())} | Flagged: {int(flagged.sum())} | Correctly flagged: {tp}")
+    print(f"Precision: {precision:.1%} | Recall: {recall:.1%}")
+    return {"injected": int(truth.sum()), "flagged": int(flagged.sum()), "true_positives": tp,
+            "precision": precision, "recall": recall}
+
+
+def run(db_path):
     df = load_data(db_path)
     df = calculate_benford_scores(df)
     df = run_isolation_forest(df)
     compute_compliance_scores(df, db_path)
+    return df, evaluate_against_labels(df, db_path)
+
+
+if __name__ == "__main__":
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    run(os.path.join(base_dir, "data", "tax_compliance.db"))

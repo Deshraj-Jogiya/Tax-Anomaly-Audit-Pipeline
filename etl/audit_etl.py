@@ -98,6 +98,7 @@ def simulate_data(db_path, num_entries=1200):
     
     ledger_entries = []
     tax_claim_entries = []
+    injected = []
     
     # 3% to 5% anomaly rate
     anomaly_rate = 0.04
@@ -110,6 +111,7 @@ def simulate_data(db_path, num_entries=1200):
         is_anomalous = np.random.random() < anomaly_rate
         
         if is_anomalous:
+            injected.append((i,))
             amount = generate_anomalous_amount()
         else:
             amount = generate_benford_amount()
@@ -159,9 +161,11 @@ def simulate_data(db_path, num_entries=1200):
         tax_claim_entries
     )
     
+    cursor.executemany("INSERT INTO injected_anomalies (entry_id) VALUES (?)", injected)
     conn.commit()
     conn.close()
     
+    print(f"Simulated {len(injected)} anomalous entries (labels kept in injected_anomalies for evaluation only)")
     print(f"Successfully loaded data into database. Total ledger entries: {len(ledger_entries)}, Total tax claims: {len(tax_claim_entries)}")
 
 if __name__ == "__main__":

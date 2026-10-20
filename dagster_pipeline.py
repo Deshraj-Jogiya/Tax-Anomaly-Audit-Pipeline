@@ -14,6 +14,7 @@ from etl.audit_etl import create_db_and_schema, simulate_data
 from models.audit_detection import (
     calculate_benford_scores,
     compute_compliance_scores,
+    evaluate_against_labels,
     load_data,
     run_isolation_forest,
 )
@@ -43,7 +44,8 @@ def audited_ledger_data(context: AssetExecutionContext, raw_ledger_data: str) ->
     df = calculate_benford_scores(df)
     df = run_isolation_forest(df)
     compute_compliance_scores(df, raw_ledger_data)
-    context.log.info(f"Audited {len(df):,} ledger entries")
+    ev = evaluate_against_labels(df, raw_ledger_data)
+    context.log.info(f"Audited {len(df):,} ledger entries: precision {ev['precision']:.1%}, recall {ev['recall']:.1%}")
     return raw_ledger_data
 
 
