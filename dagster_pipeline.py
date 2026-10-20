@@ -22,7 +22,7 @@ from viz.dashboard_export import export_dashboard, load_audited_data
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "data", "tax_compliance.db")
 SCHEMA_PATH = os.path.join(BASE_DIR, "db", "schema.sql")
-DASHBOARD_PATH = os.path.join(BASE_DIR, "viz", "tableau_ai_observability.png")
+DASHBOARD_PATH = os.path.join(BASE_DIR, "viz", "matplotlib_dashboard_preview.png")
 
 
 @asset
