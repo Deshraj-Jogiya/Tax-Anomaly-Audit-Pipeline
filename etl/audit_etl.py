@@ -45,53 +45,56 @@ def generate_anomalous_amount():
         
     return round(val, 2)
 
+# Reference tables shared by the simulator and the validator (etl/validate.py)
+DEPARTMENTS = ['Finance', 'Engineering', 'Marketing', 'Sales', 'Operations', 'HR', 'R&D']
+ACCOUNTS = {
+    'Finance': ['Audit Fees', 'Bank Charges', 'Consulting Fees'],
+    'Engineering': ['Software Licenses', 'Hardware Procurement', 'Cloud Infrastructure'],
+    'Marketing': ['Advertising Campaigns', 'Event Sponsorship', 'Design Agencies'],
+    'Sales': ['Travel & Entertainment', 'Client Dinners', 'Sales Commission Software'],
+    'Operations': ['Equipment Rental', 'Logistics & Shipping', 'Office Supplies'],
+    'HR': ['Recruitment Services', 'Training Programs', 'Employee Benefits'],
+    'R&D': ['Lab Equipment', 'Research Materials', 'Prototyping Services']
+}
+
+TAX_CATEGORIES = {
+    'Software Licenses': 'VAT Standard Rate',
+    'Hardware Procurement': 'VAT Standard Rate',
+    'Cloud Infrastructure': 'VAT Standard Rate',
+    'Audit Fees': 'VAT Exempt',
+    'Bank Charges': 'VAT Exempt',
+    'Consulting Fees': 'VAT Standard Rate',
+    'Advertising Campaigns': 'VAT Standard Rate',
+    'Event Sponsorship': 'VAT Reduced Rate',
+    'Design Agencies': 'VAT Standard Rate',
+    'Travel & Entertainment': 'Entertainment Tax Waiver',
+    'Client Dinners': 'Entertainment Tax Waiver',
+    'Sales Commission Software': 'VAT Standard Rate',
+    'Equipment Rental': 'VAT Standard Rate',
+    'Logistics & Shipping': 'VAT Reduced Rate',
+    'Office Supplies': 'VAT Standard Rate',
+    'Recruitment Services': 'VAT Standard Rate',
+    'Training Programs': 'VAT Reduced Rate',
+    'Employee Benefits': 'VAT Exempt',
+    'Lab Equipment': 'R&D Tax Credit',
+    'Research Materials': 'R&D Tax Credit',
+    'Prototyping Services': 'R&D Tax Credit'
+}
+
+TAX_RATES = {
+    'VAT Standard Rate': 0.20,
+    'VAT Reduced Rate': 0.05,
+    'VAT Exempt': 0.00,
+    'Entertainment Tax Waiver': 0.10,
+    'R&D Tax Credit': 0.25
+}
+
+
 def simulate_data(db_path, num_entries=1200):
     """Simulates general ledger and tax claim entries, and writes them to the database."""
     print(f"Simulating {num_entries} general ledger entries...")
     np.random.seed(42) # Set seed for reproducibility
     
-    departments = ['Finance', 'Engineering', 'Marketing', 'Sales', 'Operations', 'HR', 'R&D']
-    accounts = {
-        'Finance': ['Audit Fees', 'Bank Charges', 'Consulting Fees'],
-        'Engineering': ['Software Licenses', 'Hardware Procurement', 'Cloud Infrastructure'],
-        'Marketing': ['Advertising Campaigns', 'Event Sponsorship', 'Design Agencies'],
-        'Sales': ['Travel & Entertainment', 'Client Dinners', 'Sales Commission Software'],
-        'Operations': ['Equipment Rental', 'Logistics & Shipping', 'Office Supplies'],
-        'HR': ['Recruitment Services', 'Training Programs', 'Employee Benefits'],
-        'R&D': ['Lab Equipment', 'Research Materials', 'Prototyping Services']
-    }
-    
-    tax_categories = {
-        'Software Licenses': 'VAT Standard Rate',
-        'Hardware Procurement': 'VAT Standard Rate',
-        'Cloud Infrastructure': 'VAT Standard Rate',
-        'Audit Fees': 'VAT Exempt',
-        'Bank Charges': 'VAT Exempt',
-        'Consulting Fees': 'VAT Standard Rate',
-        'Advertising Campaigns': 'VAT Standard Rate',
-        'Event Sponsorship': 'VAT Reduced Rate',
-        'Design Agencies': 'VAT Standard Rate',
-        'Travel & Entertainment': 'Entertainment Tax Waiver',
-        'Client Dinners': 'Entertainment Tax Waiver',
-        'Sales Commission Software': 'VAT Standard Rate',
-        'Equipment Rental': 'VAT Standard Rate',
-        'Logistics & Shipping': 'VAT Reduced Rate',
-        'Office Supplies': 'VAT Standard Rate',
-        'Recruitment Services': 'VAT Standard Rate',
-        'Training Programs': 'VAT Reduced Rate',
-        'Employee Benefits': 'VAT Exempt',
-        'Lab Equipment': 'R&D Tax Credit',
-        'Research Materials': 'R&D Tax Credit',
-        'Prototyping Services': 'R&D Tax Credit'
-    }
-    
-    tax_rates = {
-        'VAT Standard Rate': 0.20,
-        'VAT Reduced Rate': 0.05,
-        'VAT Exempt': 0.00,
-        'Entertainment Tax Waiver': 0.10,
-        'R&D Tax Credit': 0.25
-    }
     
     # Generate dates over the last year
     start_date = datetime(2025, 1, 1)
@@ -104,8 +107,8 @@ def simulate_data(db_path, num_entries=1200):
     anomaly_rate = 0.04
     
     for i in range(1, num_entries + 1):
-        dept = np.random.choice(departments)
-        acct = np.random.choice(accounts[dept])
+        dept = np.random.choice(DEPARTMENTS)
+        acct = np.random.choice(ACCOUNTS[dept])
         
         # Determine if this entry is anomalous
         is_anomalous = np.random.random() < anomaly_rate
@@ -126,8 +129,8 @@ def simulate_data(db_path, num_entries=1200):
         ledger_entries.append((i, tx_date, acct, desc, amount, dept))
         
         # Determine tax claims
-        cat = tax_categories[acct]
-        base_rate = tax_rates[cat]
+        cat = TAX_CATEGORIES[acct]
+        base_rate = TAX_RATES[cat]
         
         if is_anomalous:
             # Anomalous tax claim: either zero, extremely high, or double the allowed rate
